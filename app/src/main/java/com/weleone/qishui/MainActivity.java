@@ -65,22 +65,32 @@ public class MainActivity extends Activity {
 
         webView.setWebViewClient(new WebViewClient());
 
-        // 点页面里的下载链接, 直接下到手机本地下载目录
+        // 点页面里的下载链接, 让用户选: 存服务器 (网络存储) 还是下到手机
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition,
                                         String mimetype, long contentLength) {
                 String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
-                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-                req.setMimeType(mimetype);
-                req.addRequestHeader("User-Agent", userAgent);
-                req.setTitle(fileName);
-                req.setDescription("汽水抓取下载");
-                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
-                DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                dm.enqueue(req);
-                Toast.makeText(MainActivity.this, "已开始下载到手机: " + fileName, Toast.LENGTH_LONG).show();
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("下载到哪里?")
+                        .setMessage(fileName)
+                        .setPositiveButton("手机存储", (d, w) -> {
+                            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+                            req.setMimeType(mimetype);
+                            req.addRequestHeader("User-Agent", userAgent);
+                            req.setTitle(fileName);
+                            req.setDescription("汽水抓取下载");
+                            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+                            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                            dm.enqueue(req);
+                            Toast.makeText(MainActivity.this, "已开始下载到手机: " + fileName, Toast.LENGTH_LONG).show();
+                        })
+                        .setNegativeButton("网络存储", (d, w) -> {
+                            // 抓取时文件已自动存到服务器, 不用再下
+                            Toast.makeText(MainActivity.this, "已在服务器上: " + fileName, Toast.LENGTH_LONG).show();
+                        })
+                        .show();
             }
         });
 
