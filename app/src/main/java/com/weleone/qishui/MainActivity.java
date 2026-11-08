@@ -101,6 +101,16 @@ public class MainActivity extends Activity {
             public void onDownloadStart(String url, String userAgent, String contentDisposition,
                                         String mimetype, long contentLength) {
                 String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
+        // 服务器旧版头会把 "-.mp3; filename*=UTF-8''..." 当成文件名, 这里兜底解出来
+        if (fileName != null && (fileName.contains(";") || fileName.contains("filename"))) {
+            int i = fileName.indexOf("UTF-8''");
+            if (i >= 0) {
+                try { fileName = java.net.URLDecoder.decode(fileName.substring(i + 7), "UTF-8"); }
+                catch (Exception ignored) { fileName = null; }
+            } else {
+                fileName = null;
+            }
+        }
                 startDownloadChoice(url, userAgent, contentDisposition, mimetype);
             }
         });
@@ -114,6 +124,16 @@ public class MainActivity extends Activity {
 
     private void startDownloadChoice(String url, String userAgent, String contentDisposition, String mimetype) {
         String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
+        // 服务器旧版头会把 "-.mp3; filename*=UTF-8''..." 当成文件名, 这里兜底解出来
+        if (fileName != null && (fileName.contains(";") || fileName.contains("filename"))) {
+            int i = fileName.indexOf("UTF-8''");
+            if (i >= 0) {
+                try { fileName = java.net.URLDecoder.decode(fileName.substring(i + 7), "UTF-8"); }
+                catch (Exception ignored) { fileName = null; }
+            } else {
+                fileName = null;
+            }
+        }
         if (fileName == null || fileName.isEmpty()) {
             // 从 URL 里取文件名
             fileName = Uri.parse(url).getLastPathSegment();
