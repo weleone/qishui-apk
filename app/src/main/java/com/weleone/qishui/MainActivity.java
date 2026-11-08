@@ -15,7 +15,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
@@ -41,7 +40,6 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_URL = "http://192.168.2.3:8107";
 
     private WebView webView;
-    private TextView serverBar;
     private static final int REQ_SAVE_FILE = 1001;
     private String pendingUrl;
     private String pendingMime;
@@ -55,18 +53,6 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         root.addView(webView);
 
-        // 底部当前服务器地址栏
-        serverBar = new TextView(this);
-        serverBar.setTextSize(12);
-        serverBar.setPadding(12, 6, 12, 6);
-        serverBar.setBackgroundColor(0xCC000000);
-        serverBar.setTextColor(0xFFFFFFFF);
-        FrameLayout.LayoutParams barLp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
-        barLp.gravity = Gravity.BOTTOM;
-        serverBar.setLayoutParams(barLp);
-        serverBar.setOnClickListener(v -> showServerManager());
-        root.addView(serverBar);
 
         // 右上角常驻设置按钮, 随时能换服务器
         Button settingsBtn = new Button(this);
@@ -114,7 +100,6 @@ public class MainActivity extends Activity {
         if (url == null) {
             showServerManager();
         } else {
-            updateServerBar(url);
             webView.loadUrl(url);
         }
     }
@@ -168,13 +153,8 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    private void updateServerBar(String url) {
-        if (serverBar != null) serverBar.setText("服务器: " + url + "  |  v1.0.1");
-    }
-
     private void loadServer(String url) {
         getPrefs().edit().putString(KEY_URL, url).apply();
-        updateServerBar(url);
         webView.loadUrl(url);
     }
 
