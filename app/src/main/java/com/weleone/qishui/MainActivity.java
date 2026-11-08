@@ -137,7 +137,7 @@ public class MainActivity extends Activity {
                 .setPositiveButton("手机存储", (d, w) -> {
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("手机存储")
-                            .setMessage(fileName)
+                            .setMessage(fName)
                             .setPositiveButton("默认下载目录", (d2, w2) -> {
                                 DownloadManager.Request req = new DownloadManager.Request(Uri.parse(fUrl));
                                 req.setMimeType(fMime);
@@ -145,7 +145,7 @@ public class MainActivity extends Activity {
                                 req.setTitle(fName);
                                 req.setDescription("汽水抓取下载");
                                 req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+                                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fName);
                                 DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                                 dm.enqueue(req);
                                 Toast.makeText(MainActivity.this, "已开始下载到手机下载目录: " + fName, Toast.LENGTH_LONG).show();
