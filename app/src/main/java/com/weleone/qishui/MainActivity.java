@@ -14,6 +14,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
@@ -39,6 +40,7 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_URL = "http://192.168.2.3:8107";
 
     private WebView webView;
+    private TextView serverBar;
     private static final int REQ_SAVE_FILE = 1001;
     private String pendingUrl;
     private String pendingMime;
@@ -51,6 +53,19 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         webView = new WebView(this);
         root.addView(webView);
+
+        // 底部当前服务器地址栏
+        serverBar = new TextView(this);
+        serverBar.setTextSize(12);
+        serverBar.setPadding(12, 6, 12, 6);
+        serverBar.setBackgroundColor(0xCC000000);
+        serverBar.setTextColor(0xFFFFFFFF);
+        FrameLayout.LayoutParams barLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+        barLp.gravity = Gravity.BOTTOM;
+        serverBar.setLayoutParams(barLp);
+        serverBar.setOnClickListener(v -> showServerManager());
+        root.addView(serverBar);
 
         // 右上角常驻设置按钮, 随时能换服务器
         Button settingsBtn = new Button(this);
@@ -124,8 +139,19 @@ public class MainActivity extends Activity {
         if (url == null) {
             showServerManager();
         } else {
+            updateServerBar(url);
             webView.loadUrl(url);
         }
+    }
+
+    private void updateServerBar(String url) {
+        if (serverBar != null) serverBar.setText("服务器: " + url);
+    }
+
+    private void loadServer(String url) {
+        getPrefs().edit().putString(KEY_URL, url).apply();
+        updateServerBar(url);
+        webView.loadUrl(url);
     }
 
     private SharedPreferences getPrefs() {
@@ -171,12 +197,7 @@ public class MainActivity extends Activity {
         layout.addView(listView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // 点一下切换, 长按删除
-        listView.setOnItemClickListener((parent, view, position, id) -> {
-            String url = servers.get(position);
-            getPrefs().edit().putString(KEY_URL, url).apply();
-            webView.loadUrl(url);
-        });
+        // 长按删除
         listView.setOnItemLongClickListener((parent, view, position, id) -> {
             String url = servers.get(position);
             new AlertDialog.Builder(this)
@@ -186,8 +207,7 @@ public class MainActivity extends Activity {
                         servers.remove(position);
                         saveServers(servers);
                         if (url.equals(cur) && !servers.isEmpty()) {
-                            getPrefs().edit().putString(KEY_URL, servers.get(0)).apply();
-                            webView.loadUrl(servers.get(0));
+                            loadServer(servers.get(0));
                         }
                         showServerManager();
                     })
@@ -201,11 +221,17 @@ public class MainActivity extends Activity {
         addBtn.setOnClickListener(v -> showAddServer(servers));
         layout.addView(addBtn);
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("服务器管理 (点一下切换, 长按删除)")
                 .setView(layout)
                 .setNegativeButton("关闭", null)
-                .show();
+                .create();
+        listView.setOnItemClickListener((parent, view, position, id) -> {
+            String url = servers.get(position);
+            loadServer(url);
+            dialog.dismiss();
+        });
+        dialog.show();
     }
 
     private void showAddServer(ArrayList<String> servers) {
@@ -222,8 +248,7 @@ public class MainActivity extends Activity {
                         if (!url.startsWith("http")) url = "http://" + url;
                         if (!servers.contains(url)) servers.add(url);
                         saveServers(servers);
-                        getPrefs().edit().putString(KEY_URL, url).apply();
-                        webView.loadUrl(url);
+                        loadServer(url);
                     }
                 })
                 .setNegativeButton("取消", null)
