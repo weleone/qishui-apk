@@ -85,6 +85,14 @@ public class MainActivity extends Activity {
                 }
                 return false;
             }
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url.contains("/api/file/") || url.contains("/api/zip/")) {
+                    startDownloadChoice(url, "", "", "audio/mpeg");
+                    return true;
+                }
+                return false;
+            }
         });
 
         // 点页面里的下载链接, 让用户选: 存服务器 (网络存储) 还是下到手机
