@@ -5,7 +5,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="汽水音乐"
+        android:label="汽水抓取"
         android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
