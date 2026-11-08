@@ -164,7 +164,7 @@ public class MainActivity extends Activity {
     }
 
     private void updateServerBar(String url) {
-        if (serverBar != null) serverBar.setText("服务器: " + url + "  |  v" + BuildConfig.VERSION_NAME);
+        if (serverBar != null) serverBar.setText("服务器: " + url + "  |  v1.0.1");
     }
 
     private void loadServer(String url) {
@@ -248,7 +248,6 @@ public class MainActivity extends Activity {
         listView.setOnItemClickListener((parent, view, position, id) -> {
             String url = servers.get(position);
             loadServer(url);
-            dialog.dismiss();
         });
         dialog.show();
     }
