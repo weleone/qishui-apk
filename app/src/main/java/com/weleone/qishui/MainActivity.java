@@ -139,46 +139,21 @@ public class MainActivity extends Activity {
             fileName = Uri.parse(url).getLastPathSegment();
             if (fileName == null) fileName = "qishui.mp3";
         }
-        // lambda 里只能用 final 变量, 复制一份
         final String fUrl = url;
         final String fMime = mimetype;
         final String fAgent = userAgent;
         final String fName = fileName;
-        new AlertDialog.Builder(MainActivity.this)
-                .setTitle("下载到哪里?")
-                .setMessage(fileName)
-                .setPositiveButton("手机存储", (d, w) -> {
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("手机存储")
-                            .setMessage(fName)
-                            .setPositiveButton("默认下载目录", (d2, w2) -> {
-                                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(fUrl));
-                                req.setMimeType(fMime);
-                                req.addRequestHeader("User-Agent", fAgent);
-                                req.setTitle(fName);
-                                req.setDescription("汽水抓取下载");
-                                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fName);
-                                DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                                dm.enqueue(req);
-                                Toast.makeText(MainActivity.this, "已开始下载到手机下载目录: " + fName, Toast.LENGTH_LONG).show();
-                            })
-                            .setNegativeButton("手动选位置", (d2, w2) -> {
-                                pendingUrl = fUrl;
-                                pendingMime = fMime;
-                                pendingFileName = fName;
-                                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                                intent.setType(fMime != null && !fMime.isEmpty() ? fMime : "audio/mpeg");
-                                intent.putExtra(Intent.EXTRA_TITLE, fName);
-                                startActivityForResult(intent, REQ_SAVE_FILE);
-                            })
-                            .show();
-                })
-                .setNegativeButton("网络存储", (d, w) -> {
-                    Toast.makeText(MainActivity.this, "已在服务器上: " + fName, Toast.LENGTH_LONG).show();
-                })
-                .show();
+        // 直接下到手机下载目录, 不再弹选择框
+        DownloadManager.Request req = new DownloadManager.Request(Uri.parse(fUrl));
+        req.setMimeType(fMime);
+        req.addRequestHeader("User-Agent", fAgent);
+        req.setTitle(fName);
+        req.setDescription("汽水抓取下载");
+        req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fName);
+        DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        dm.enqueue(req);
+        Toast.makeText(MainActivity.this, "已开始下载到手机: " + fName, Toast.LENGTH_LONG).show();
     }
 
     private void loadServer(String url) {
