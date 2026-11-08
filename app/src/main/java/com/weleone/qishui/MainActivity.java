@@ -210,6 +210,8 @@ public class MainActivity extends Activity {
 
     private void showAddServer(ArrayList<String> servers) {
         final EditText input = new EditText(this);
+        input.setText("http://");
+        input.setSelection(input.getText().length());
         input.setHint("http://192.168.2.3:8107 或外网地址");
         new AlertDialog.Builder(this)
                 .setTitle("添加服务器")
