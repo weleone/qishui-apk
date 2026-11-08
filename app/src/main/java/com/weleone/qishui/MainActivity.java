@@ -126,6 +126,11 @@ public class MainActivity extends Activity {
             fileName = Uri.parse(url).getLastPathSegment();
             if (fileName == null) fileName = "qishui.mp3";
         }
+        // lambda 里只能用 final 变量, 复制一份
+        final String fUrl = url;
+        final String fMime = mimetype;
+        final String fAgent = userAgent;
+        final String fName = fileName;
         new AlertDialog.Builder(MainActivity.this)
                 .setTitle("下载到哪里?")
                 .setMessage(fileName)
@@ -134,31 +139,31 @@ public class MainActivity extends Activity {
                             .setTitle("手机存储")
                             .setMessage(fileName)
                             .setPositiveButton("默认下载目录", (d2, w2) -> {
-                                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-                                req.setMimeType(mimetype);
-                                req.addRequestHeader("User-Agent", userAgent);
-                                req.setTitle(fileName);
+                                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(fUrl));
+                                req.setMimeType(fMime);
+                                req.addRequestHeader("User-Agent", fAgent);
+                                req.setTitle(fName);
                                 req.setDescription("汽水抓取下载");
                                 req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                                 req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
                                 DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                                 dm.enqueue(req);
-                                Toast.makeText(MainActivity.this, "已开始下载到手机下载目录: " + fileName, Toast.LENGTH_LONG).show();
+                                Toast.makeText(MainActivity.this, "已开始下载到手机下载目录: " + fName, Toast.LENGTH_LONG).show();
                             })
                             .setNegativeButton("手动选位置", (d2, w2) -> {
-                                pendingUrl = url;
-                                pendingMime = mimetype;
-                                pendingFileName = fileName;
+                                pendingUrl = fUrl;
+                                pendingMime = fMime;
+                                pendingFileName = fName;
                                 Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                                intent.setType(mimetype != null && !mimetype.isEmpty() ? mimetype : "audio/mpeg");
-                                intent.putExtra(Intent.EXTRA_TITLE, fileName);
+                                intent.setType(fMime != null && !fMime.isEmpty() ? fMime : "audio/mpeg");
+                                intent.putExtra(Intent.EXTRA_TITLE, fName);
                                 startActivityForResult(intent, REQ_SAVE_FILE);
                             })
                             .show();
                 })
                 .setNegativeButton("网络存储", (d, w) -> {
-                    Toast.makeText(MainActivity.this, "已在服务器上: " + fileName, Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "已在服务器上: " + fName, Toast.LENGTH_LONG).show();
                 })
                 .show();
     }
