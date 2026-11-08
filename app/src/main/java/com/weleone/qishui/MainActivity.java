@@ -9,6 +9,7 @@ import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -87,7 +88,18 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String u = request.getUrl().toString();
+                // 下载链接不让 WebView 自己打开, 走下载选择弹窗
+                if (u.contains("/api/file/") || u.contains("/api/zip/")) {
+                    startDownloadChoice(u, "", "", "audio/mpeg");
+                    return true;
+                }
+                return false;
+            }
+        });
 
         // 点页面里的下载链接, 让用户选: 存服务器 (网络存储) 还是下到手机
         webView.setDownloadListener(new DownloadListener() {
@@ -95,46 +107,9 @@ public class MainActivity extends Activity {
             public void onDownloadStart(String url, String userAgent, String contentDisposition,
                                         String mimetype, long contentLength) {
                 String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("下载到哪里?")
-                        .setMessage(fileName)
-                        .setPositiveButton("手机存储", (d, w) -> {
-                            // 手机存储: 先选默认下载目录, 还是手动选位置
-                            new AlertDialog.Builder(MainActivity.this)
-                                    .setTitle("手机存储")
-                                    .setMessage(fileName)
-                                    .setPositiveButton("默认下载目录", (d2, w2) -> {
-                                        DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-                                        req.setMimeType(mimetype);
-                                        req.addRequestHeader("User-Agent", userAgent);
-                                        req.setTitle(fileName);
-                                        req.setDescription("汽水抓取下载");
-                                        req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                                        req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
-                                        DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                                        dm.enqueue(req);
-                                        Toast.makeText(MainActivity.this, "已开始下载到手机下载目录: " + fileName, Toast.LENGTH_LONG).show();
-                                    })
-                                    .setNegativeButton("手动选位置", (d2, w2) -> {
-                                        pendingUrl = url;
-                                        pendingMime = mimetype;
-                                        pendingFileName = fileName;
-                                        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                                        intent.addCategory(Intent.CATEGORY_OPENABLE);
-                                        intent.setType(mimetype != null && !mimetype.isEmpty() ? mimetype : "audio/mpeg");
-                                        intent.putExtra(Intent.EXTRA_TITLE, fileName);
-                                        startActivityForResult(intent, REQ_SAVE_FILE);
-                                    })
-                                    .show();
-                        })
-                        .setNegativeButton("网络存储", (d, w) -> {
-                            // 抓取时文件已自动存到服务器, 不用再下
-                            Toast.makeText(MainActivity.this, "已在服务器上: " + fileName, Toast.LENGTH_LONG).show();
-                        })
-                        .show();
+                startDownloadChoice(url, userAgent, contentDisposition, mimetype);
             }
         });
-
         String url = getPrefs().getString(KEY_URL, null);
         if (url == null) {
             showServerManager();
@@ -144,8 +119,52 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void startDownloadChoice(String url, String userAgent, String contentDisposition, String mimetype) {
+        String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
+        if (fileName == null || fileName.isEmpty()) {
+            // 从 URL 里取文件名
+            fileName = Uri.parse(url).getLastPathSegment();
+            if (fileName == null) fileName = "qishui.mp3";
+        }
+        new AlertDialog.Builder(MainActivity.this)
+                .setTitle("下载到哪里?")
+                .setMessage(fileName)
+                .setPositiveButton("手机存储", (d, w) -> {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("手机存储")
+                            .setMessage(fileName)
+                            .setPositiveButton("默认下载目录", (d2, w2) -> {
+                                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+                                req.setMimeType(mimetype);
+                                req.addRequestHeader("User-Agent", userAgent);
+                                req.setTitle(fileName);
+                                req.setDescription("汽水抓取下载");
+                                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+                                DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                                dm.enqueue(req);
+                                Toast.makeText(MainActivity.this, "已开始下载到手机下载目录: " + fileName, Toast.LENGTH_LONG).show();
+                            })
+                            .setNegativeButton("手动选位置", (d2, w2) -> {
+                                pendingUrl = url;
+                                pendingMime = mimetype;
+                                pendingFileName = fileName;
+                                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                                intent.setType(mimetype != null && !mimetype.isEmpty() ? mimetype : "audio/mpeg");
+                                intent.putExtra(Intent.EXTRA_TITLE, fileName);
+                                startActivityForResult(intent, REQ_SAVE_FILE);
+                            })
+                            .show();
+                })
+                .setNegativeButton("网络存储", (d, w) -> {
+                    Toast.makeText(MainActivity.this, "已在服务器上: " + fileName, Toast.LENGTH_LONG).show();
+                })
+                .show();
+    }
+
     private void updateServerBar(String url) {
-        if (serverBar != null) serverBar.setText("服务器: " + url);
+        if (serverBar != null) serverBar.setText("服务器: " + url + "  |  v" + BuildConfig.VERSION_NAME);
     }
 
     private void loadServer(String url) {
