@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import android.widget.LinearLayout;
 import android.app.DownloadManager;
 import android.content.Context;
@@ -51,7 +52,13 @@ public class MainActivity extends Activity {
 
         FrameLayout root = new FrameLayout(this);
         webView = new WebView(this);
-        root.addView(webView);
+        SwipeRefreshLayout swipe = new SwipeRefreshLayout(this);
+        swipe.addView(webView);
+        swipe.setOnRefreshListener(() -> {
+            webView.reload();
+            swipe.setRefreshing(false);
+        });
+        root.addView(swipe);
 
 
         // 右上角常驻设置按钮, 随时能换服务器
