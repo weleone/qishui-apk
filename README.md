@@ -1,6 +1,6 @@
 # qishui-apk
 
-汽水音乐自建抓取服务的 Android WebView 壳：打开即连家里服务器 `http://192.168.2.3:8107`。
+汽水音乐自建抓取服务的 Android WebView 壳：打开即连家里服务器 `http://192.168.1.3:8107`。
 
 抓取在服务器上跑（Docker 镜像 `weleone/qishui-music:latest`），手机只负责显示和粘贴链接。
 

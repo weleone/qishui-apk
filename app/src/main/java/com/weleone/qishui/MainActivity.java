@@ -44,7 +44,7 @@ public class MainActivity extends Activity {
     private static final String PREFS = "qishui_prefs";
     private static final String KEY_URL = "server_url";
     private static final String KEY_SERVERS = "servers";
-    private static final String DEFAULT_URL = "http://192.168.2.3:8107";
+    private static final String DEFAULT_URL = "http://192.168.1.3:8107";
 
     private WebView webView;
     private static final int REQ_SAVE_FILE = 1001;
@@ -72,9 +72,11 @@ public class MainActivity extends Activity {
 
 
         // 右上角常驻设置按钮: TextView 透明无灰底 (仿 Tagr 的 ⚙), 随时能换服务器
+        // 汽水页是固定深色底 (#0e0e11), 齿轮必须用白色, 黑色会被页面盖住看不见
         TextView settingsText = new TextView(this);
         settingsText.setText("⚙");
         settingsText.setTextSize(22);
+        settingsText.setTextColor(Color.WHITE);
         settingsText.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
@@ -345,7 +347,7 @@ public class MainActivity extends Activity {
         layout.addView(listView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // 长按删除
+        // 长按删除 / 编辑
         listView.setOnItemLongClickListener((parent, view, position, id) -> {
             String url = servers.get(position);
             new AlertDialog.Builder(this)
@@ -360,6 +362,7 @@ public class MainActivity extends Activity {
                         }
                         showServerManager();
                     })
+                    .setNeutralButton("编辑", (d, w) -> showEditServer(servers, position, url, cur))
                     .setNegativeButton("取消", null)
                     .show();
             return true;
@@ -383,6 +386,32 @@ public class MainActivity extends Activity {
         serverDialog.show();
         // 打开就测全部服务器的连通性
         for (String url : servers) checkServer(url);
+    }
+
+    // 长按菜单里的编辑: 改服务器地址 (改 IP / 端口不用删了重加)
+    private void showEditServer(ArrayList<String> servers, int position, String oldUrl, String cur) {
+        final EditText input = new EditText(this);
+        input.setText(oldUrl);
+        input.setSelection(input.getText().length());
+        input.setHint("http://192.168.1.3:8107 或外网地址");
+        new AlertDialog.Builder(this)
+                .setTitle("编辑服务器")
+                .setView(input)
+                .setPositiveButton("保存", (d, w) -> {
+                    String url = input.getText().toString().trim();
+                    if (url.isEmpty() || url.equals(oldUrl)) return;
+                    if (!url.startsWith("http")) url = "http://" + url;
+                    servers.set(position, url);
+                    serverStatus.remove(oldUrl);
+                    saveServers(servers);
+                    if (oldUrl.equals(cur)) {
+                        loadServer(url);
+                    }
+                    // 重新打开服务器管理, 改完的地址出现并立即测连通性
+                    showServerManager();
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void showAddServer(ArrayList<String> servers) {
