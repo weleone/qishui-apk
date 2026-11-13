@@ -12,6 +12,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.JavascriptInterface;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -95,19 +96,21 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        // 欢迎页里的“选择服务器”按钮调这个桥开服务器管理
+        webView.addJavascriptInterface(new QishuiBridge(), "QishuiBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
-                    showNoServicePage(request.getUrl().toString());
+                    showWelcomePage(request.getUrl().toString());
                 }
             }
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                 String cur = getPrefs().getString(KEY_URL, DEFAULT_URL);
                 if (failingUrl != null && failingUrl.equals(cur)) {
-                    showNoServicePage(failingUrl);
+                    showWelcomePage(failingUrl);
                 }
             }
             @Override
@@ -151,7 +154,8 @@ public class MainActivity extends Activity {
         });
         String url = getPrefs().getString(KEY_URL, null);
         if (url == null) {
-            showServerManager();
+            // 首次打开还没选过服务器: 进内置欢迎页, 点“选择服务器”再挑
+            showWelcomePage(null);
         } else {
             webView.loadUrl(url);
         }
@@ -214,25 +218,38 @@ public class MainActivity extends Activity {
     }
 
     // 服务器不通时显示的专设页面: “当前地址无服务” + 地址 + 右上角重选服务器的提示 (仿 Tagr)
-    private void showNoServicePage(String url) {
-        String safe = url == null ? "" : url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    // 内置欢迎页: 没连上服务器时显示, 不再一片空白
+    // failedUrl 为空 = 首次打开还没选过服务器; 有值 = 这个地址连不上
+    private void showWelcomePage(String failedUrl) {
+        String safe = failedUrl == null ? "" : failedUrl.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        String title = failedUrl == null ? "欢迎使用汽水抓取" : "当前地址无服务";
+        String sub = failedUrl == null ? "还没有连接服务器" : safe;
         // 用 fixed 全屏容器居中: 100vh 在 WebView 里不可靠, 文字会跑到顶部去
         String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>"
                 + "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                + "<style>body{margin:0;background:#0e0e11;color:#999;font-family:sans-serif;}.wrap{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}h1{font-size:26px;color:#ccc;margin:0 0 10px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}</style></head>"
-                + "<body><div class='wrap'><h1>当前地址无服务</h1>"
-                + "<p>" + safe + "</p>"
-                + "<p>点右上角 ⚙ 重新选择服务器</p></div>"
+                + "<style>body{margin:0;background:#0e0e11;color:#999;font-family:sans-serif;}.wrap{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}h1{font-size:26px;color:#eee;margin:0 0 8px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}button{margin-top:20px;padding:12px 32px;font-size:16px;color:#fff;background:#1f9d55;border:none;border-radius:8px;}button:active{background:#1a8749;}.hint{margin-top:16px;font-size:12px;color:#666;}</style></head>"
+                + "<body><div class='wrap'><h1>" + title + "</h1>"
+                + "<p>" + sub + "</p>"
+                + "<button onclick=\"QishuiBridge.openServerManager()\">选择服务器</button>"
+                + "<p class='hint'>点右上角 ⚙ 也可以切换服务器</p></div>"
                 + "</body></html>";
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+    }
+
+    // 欢迎页里的按钮调的桥: 打开服务器管理
+    private class QishuiBridge {
+        @JavascriptInterface
+        public void openServerManager() {
+            runOnUiThread(() -> showServerManager());
+        }
     }
 
     private void loadServer(String url) {
         getPrefs().edit().putString(KEY_URL, url).apply();
         Boolean st = serverStatus.get(url);
         if (st != null && !st) {
-            // 已知不通 (红×), 直接显示无服务页, 不用等加载超时
-            showNoServicePage(url);
+            // 已知不通 (红×), 直接显示欢迎页 (带无服务提示), 不用等加载超时
+            showWelcomePage(url);
         } else {
             webView.loadUrl(url);
         }
