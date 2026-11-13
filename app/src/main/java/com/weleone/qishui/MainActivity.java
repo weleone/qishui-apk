@@ -216,12 +216,13 @@ public class MainActivity extends Activity {
     // 服务器不通时显示的专设页面: “当前地址无服务” + 地址 + 右上角重选服务器的提示 (仿 Tagr)
     private void showNoServicePage(String url) {
         String safe = url == null ? "" : url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        // 用 fixed 全屏容器居中: 100vh 在 WebView 里不可靠, 文字会跑到顶部去
         String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>"
                 + "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                + "<style>body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;background:#0e0e11;color:#999;}h1{font-size:26px;color:#ccc;margin:0 0 10px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}</style></head>"
-                + "<body><h1>当前地址无服务</h1>"
+                + "<style>body{margin:0;background:#0e0e11;color:#999;font-family:sans-serif;}.wrap{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}h1{font-size:26px;color:#ccc;margin:0 0 10px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}</style></head>"
+                + "<body><div class='wrap'><h1>当前地址无服务</h1>"
                 + "<p>" + safe + "</p>"
-                + "<p>点右上角 ⚙ 重新选择服务器</p>"
+                + "<p>点右上角 ⚙ 重新选择服务器</p></div>"
                 + "</body></html>";
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
     }
