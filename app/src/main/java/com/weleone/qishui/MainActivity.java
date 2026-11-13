@@ -3,14 +3,16 @@ package com.weleone.qishui;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.webkit.WebResourceError;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
-import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -24,6 +26,8 @@ import android.os.Environment;
 import android.webkit.DownloadListener;
 import android.webkit.URLUtil;
 import android.widget.ListView;
+import android.widget.RadioButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.InputStream;
@@ -31,7 +35,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class MainActivity extends Activity {
@@ -45,6 +51,10 @@ public class MainActivity extends Activity {
     private String pendingUrl;
     private String pendingMime;
     private String pendingFileName;
+    // 服务器连接状态: url -> true(通)/false(不通)/null(检测中); 当前列表的 adapter, 检测完刷新用 (仿 Tagr)
+    private final Map<String, Boolean> serverStatus = new HashMap<>();
+    private BaseAdapter serverAdapter;
+    private AlertDialog serverDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,18 +71,19 @@ public class MainActivity extends Activity {
         root.addView(swipe);
 
 
-        // 右上角常驻设置按钮, 随时能换服务器
-        Button settingsBtn = new Button(this);
-        settingsBtn.setText("⚙");
-        settingsBtn.setTextSize(18);
+        // 右上角常驻设置按钮: TextView 透明无灰底 (仿 Tagr 的 ⚙), 随时能换服务器
+        TextView settingsText = new TextView(this);
+        settingsText.setText("⚙");
+        settingsText.setTextSize(22);
+        settingsText.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
         lp.gravity = Gravity.TOP | Gravity.END;
         lp.topMargin = (int) (8 * getResources().getDisplayMetrics().density);
         lp.rightMargin = (int) (8 * getResources().getDisplayMetrics().density);
-        settingsBtn.setLayoutParams(lp);
-        settingsBtn.setOnClickListener(v -> showServerManager());
-        root.addView(settingsBtn);
+        settingsText.setLayoutParams(lp);
+        settingsText.setOnClickListener(v -> showServerManager());
+        root.addView(settingsText);
 
         setContentView(root);
 
@@ -82,6 +93,19 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
 
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    showNoServicePage(request.getUrl().toString());
+                }
+            }
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                String cur = getPrefs().getString(KEY_URL, DEFAULT_URL);
+                if (failingUrl != null && failingUrl.equals(cur)) {
+                    showNoServicePage(failingUrl);
+                }
+            }
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String u = request.getUrl().toString();
@@ -185,9 +209,28 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    // 服务器不通时显示的专设页面: “当前地址无服务” + 地址 + 右上角重选服务器的提示 (仿 Tagr)
+    private void showNoServicePage(String url) {
+        String safe = url == null ? "" : url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                + "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                + "<style>body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;background:#fff;color:#888;}h1{font-size:26px;color:#666;margin:0 0 10px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}</style></head>"
+                + "<body><h1>当前地址无服务</h1>"
+                + "<p>" + safe + "</p>"
+                + "<p>点右上角 ⚙ 重新选择服务器</p>"
+                + "</body></html>";
+        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+    }
+
     private void loadServer(String url) {
         getPrefs().edit().putString(KEY_URL, url).apply();
-        webView.loadUrl(url);
+        Boolean st = serverStatus.get(url);
+        if (st != null && !st) {
+            // 已知不通 (红×), 直接显示无服务页, 不用等加载超时
+            showNoServicePage(url);
+        } else {
+            webView.loadUrl(url);
+        }
     }
 
     private SharedPreferences getPrefs() {
@@ -208,7 +251,86 @@ public class MainActivity extends Activity {
         getPrefs().edit().putStringSet(KEY_SERVERS, new LinkedHashSet<>(list)).apply();
     }
 
+    // 检测服务器连通性: GET 根地址, 2xx/3xx 算通, 超时或异常算不通; 结果回主线程刷新列表 (仿 Tagr)
+    private void checkServer(String url) {
+        serverStatus.put(url, null);
+        new Thread(() -> {
+            boolean ok = false;
+            java.net.HttpURLConnection conn = null;
+            try {
+                conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                int code = conn.getResponseCode();
+                ok = code >= 200 && code < 400;
+            } catch (Exception e) {
+                ok = false;
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+            boolean result = ok;
+            runOnUiThread(() -> {
+                serverStatus.put(url, result);
+                if (serverAdapter != null) serverAdapter.notifyDataSetChanged();
+            });
+        }).start();
+    }
+
+    // 服务器列表行: [圆点选择] [地址] [连接状态 ✓绿/×红/…检测中] (仿 Tagr)
+    private class ServerAdapter extends BaseAdapter {
+        private final ArrayList<String> servers;
+        private final String cur;
+        ServerAdapter(ArrayList<String> servers, String cur) {
+            this.servers = servers;
+            this.cur = cur;
+        }
+        @Override public int getCount() { return servers.size(); }
+        @Override public String getItem(int pos) { return servers.get(pos); }
+        @Override public long getItemId(int pos) { return pos; }
+        @Override
+        public View getView(int position, View convertView, android.view.ViewGroup parent) {
+            String url = servers.get(position);
+            LinearLayout row = new LinearLayout(MainActivity.this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            int vpad = (int) (8 * getResources().getDisplayMetrics().density);
+            row.setPadding(0, vpad, 0, vpad);
+
+            RadioButton radio = new RadioButton(MainActivity.this);
+            radio.setChecked(url.equals(cur));
+            radio.setClickable(false);
+            radio.setFocusable(false);
+            row.addView(radio);
+
+            TextView urlTv = new TextView(MainActivity.this);
+            urlTv.setText(url);
+            urlTv.setSingleLine(true);
+            urlTv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            urlTv.setLayoutParams(new LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            row.addView(urlTv);
+
+            TextView statusTv = new TextView(MainActivity.this);
+            statusTv.setTextSize(18);
+            Boolean st = serverStatus.get(url);
+            if (st == null) {
+                statusTv.setText("…");
+                statusTv.setTextColor(Color.GRAY);
+            } else if (st) {
+                statusTv.setText("✓");
+                statusTv.setTextColor(Color.parseColor("#22AA55"));
+            } else {
+                statusTv.setText("×");
+                statusTv.setTextColor(Color.RED);
+            }
+            row.addView(statusTv);
+            return row;
+        }
+    }
+
     private void showServerManager() {
+        if (serverDialog != null && serverDialog.isShowing()) serverDialog.dismiss();
         ArrayList<String> servers = getServers();
         String cur = getPrefs().getString(KEY_URL, DEFAULT_URL);
 
@@ -218,18 +340,8 @@ public class MainActivity extends Activity {
         layout.setPadding(pad, pad, pad, pad);
 
         ListView listView = new ListView(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-                android.R.layout.simple_list_item_1, servers) {
-            @Override
-            public View getView(int position, View convertView, android.view.ViewGroup parent) {
-                View v = super.getView(position, convertView, parent);
-                android.widget.TextView tv = (android.widget.TextView) v;
-                String u = getItem(position);
-                tv.setText(u + (u.equals(cur) ? "  ✓" : ""));
-                return v;
-            }
-        };
-        listView.setAdapter(adapter);
+        serverAdapter = new ServerAdapter(servers, cur);
+        listView.setAdapter(serverAdapter);
         layout.addView(listView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -241,6 +353,7 @@ public class MainActivity extends Activity {
                     .setMessage(url)
                     .setPositiveButton("删除", (d, w) -> {
                         servers.remove(position);
+                        serverStatus.remove(url);
                         saveServers(servers);
                         if (url.equals(cur) && !servers.isEmpty()) {
                             loadServer(servers.get(0));
@@ -257,16 +370,19 @@ public class MainActivity extends Activity {
         addBtn.setOnClickListener(v -> showAddServer(servers));
         layout.addView(addBtn);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("服务器管理 (点一下切换, 长按删除)")
+        serverDialog = new AlertDialog.Builder(this)
+                .setTitle("服务器管理 (点圆点或点行切换, 长按删除)")
                 .setView(layout)
                 .setNegativeButton("关闭", null)
                 .create();
         listView.setOnItemClickListener((parent, view, position, id) -> {
             String url = servers.get(position);
             loadServer(url);
+            if (serverDialog != null) serverDialog.dismiss();
         });
-        dialog.show();
+        serverDialog.show();
+        // 打开就测全部服务器的连通性
+        for (String url : servers) checkServer(url);
     }
 
     private void showAddServer(ArrayList<String> servers) {
@@ -284,6 +400,8 @@ public class MainActivity extends Activity {
                         if (!servers.contains(url)) servers.add(url);
                         saveServers(servers);
                         loadServer(url);
+                        // 重新打开服务器管理, 新加的服务器出现并立即测连通性
+                        showServerManager();
                     }
                 })
                 .setNegativeButton("取消", null)
