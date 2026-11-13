@@ -62,6 +62,8 @@ public class MainActivity extends Activity {
 
         FrameLayout root = new FrameLayout(this);
         webView = new WebView(this);
+        // 汽水页是固定深色底 (#0e0e11): WebView 底色也设成深色, 还没连上服务器时不再一片白
+        webView.setBackgroundColor(Color.parseColor("#0e0e11"));
         SwipeRefreshLayout swipe = new SwipeRefreshLayout(this);
         swipe.addView(webView);
         swipe.setOnRefreshListener(() -> {
@@ -216,7 +218,7 @@ public class MainActivity extends Activity {
         String safe = url == null ? "" : url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
         String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>"
                 + "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                + "<style>body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;background:#fff;color:#888;}h1{font-size:26px;color:#666;margin:0 0 10px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}</style></head>"
+                + "<style>body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;background:#0e0e11;color:#999;}h1{font-size:26px;color:#ccc;margin:0 0 10px;text-align:center;padding:0 24px;}p{font-size:14px;margin:4px 0;text-align:center;padding:0 24px;}</style></head>"
                 + "<body><h1>当前地址无服务</h1>"
                 + "<p>" + safe + "</p>"
                 + "<p>点右上角 ⚙ 重新选择服务器</p>"
