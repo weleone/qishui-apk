@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
+import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.URLUtil;
 import android.widget.ListView;
@@ -196,6 +197,9 @@ public class MainActivity extends Activity {
                     DownloadManager.Request req = new DownloadManager.Request(Uri.parse(fUrl));
                     req.setMimeType(fMime);
                     req.addRequestHeader("User-Agent", fAgent);
+                    // 登录后下载要带 WebView 里的 session cookie, 否则服务端会 401/跳登录页, 下回来的是登录页 HTML
+                    String cookie = CookieManager.getInstance().getCookie(fUrl);
+                    if (cookie != null) req.addRequestHeader("Cookie", cookie);
                     req.setTitle(fName);
                     req.setDescription("汽水抓取下载");
                     req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
@@ -469,6 +473,9 @@ public class MainActivity extends Activity {
                     HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
                     conn.setConnectTimeout(30000);
                     conn.setReadTimeout(60000);
+                    // 登录后下载要带 WebView 里的 session cookie, 否则服务端会 401/跳登录页
+                    String cookie = CookieManager.getInstance().getCookie(url);
+                    if (cookie != null) conn.setRequestProperty("Cookie", cookie);
                     conn.connect();
                     try (InputStream in = conn.getInputStream();
                          OutputStream out = getContentResolver().openOutputStream(dest)) {
