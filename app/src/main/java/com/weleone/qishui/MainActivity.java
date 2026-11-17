@@ -97,6 +97,8 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        // 让系统自动填充服务 (Vaultwarden 等) 能在 WebView 里的登录框上弹出
+        webView.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_AUTO);
         // 欢迎页里的“选择服务器”按钮调这个桥开服务器管理
         webView.addJavascriptInterface(new QishuiBridge(), "QishuiBridge");
 
